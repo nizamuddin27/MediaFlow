@@ -1,5 +1,4 @@
 import asyncio
-import json
 import math
 import random
 import re
@@ -13,38 +12,23 @@ from moviepy import AudioFileClip, VideoClip
 
 
 # ==========================================
-# MEDIAFLOW - FACELESS YOUTUBE SHORTS
-# Original visuals + AI voice + subtitles
+# MEDIAFLOW V2 - ANIMATED FACELESS SHORTS
 # ==========================================
 
-WIDTH = 720
-HEIGHT = 1280
+W, H = 720, 1280
 FPS = 24
-
-OUTPUT_AUDIO = Path("output/audio")
-OUTPUT_VIDEO = Path("output/video")
-OUTPUT_SCRIPT = Path("output")
-
 VOICE = "en-US-GuyNeural"
 
-OUTPUT_AUDIO.mkdir(parents=True, exist_ok=True)
-OUTPUT_VIDEO.mkdir(parents=True, exist_ok=True)
-OUTPUT_SCRIPT.mkdir(parents=True, exist_ok=True)
+AUDIO_DIR = Path("output/audio")
+VIDEO_DIR = Path("output/video")
+SCRIPT_DIR = Path("output")
+
+for folder in (AUDIO_DIR, VIDEO_DIR, SCRIPT_DIR):
+    folder.mkdir(parents=True, exist_ok=True)
 
 
-# Original scripts. Add more scripts here later.
-SCRIPTS = [
-    {
-        "title": "Why the Ocean Looks Blue",
-        "text": (
-            "Have you ever wondered why the ocean looks blue? "
-            "Water absorbs colors from sunlight differently. "
-            "Red light is absorbed more quickly, while blue light "
-            "travels deeper and is scattered back toward our eyes. "
-            "That is why large bodies of water often appear blue. "
-            "Nature is full of fascinating surprises."
-        ),
-    },
+# Six original visual scenes are generated for each video.
+STORIES = [
     {
         "title": "The Power of Small Habits",
         "text": (
@@ -55,6 +39,33 @@ SCRIPTS = [
             "they can create meaningful change. "
             "Progress is built one step at a time."
         ),
+        "scenes": [
+            ("NIGHT", "A NEW DAY", "moon"),
+            ("START", "ONE SMALL STEP", "stairs"),
+            ("LEARN", "KEEP LEARNING", "book"),
+            ("TIME", "TIME KEEPS MOVING", "clock"),
+            ("GROW", "PROGRESS TAKES TIME", "plant"),
+            ("SUCCESS", "ONE STEP AT A TIME", "sun"),
+        ],
+    },
+    {
+        "title": "Why the Ocean Looks Blue",
+        "text": (
+            "Have you ever wondered why the ocean looks blue? "
+            "Water absorbs colors from sunlight differently. "
+            "Red light is absorbed more quickly, while blue light "
+            "travels deeper and is scattered back toward our eyes. "
+            "That is why large bodies of water often appear blue. "
+            "Nature is full of fascinating surprises."
+        ),
+        "scenes": [
+            ("SUNLIGHT", "LIGHT MEETS WATER", "sun"),
+            ("OCEAN", "A WORLD OF BLUE", "waves"),
+            ("LIGHT", "COLORS OF LIGHT", "rays"),
+            ("DEPTH", "LIGHT TRAVELS DEEPER", "waves"),
+            ("DISCOVERY", "BLUE LIGHT RETURNS", "rays"),
+            ("NATURE", "SCIENCE IS EVERYWHERE", "sun"),
+        ],
     },
     {
         "title": "Your Brain Needs Sleep",
@@ -63,294 +74,427 @@ SCRIPTS = [
             "While you sleep, your brain processes information, "
             "supports memory, and helps your body recover. "
             "Consistently missing sleep can affect concentration "
-            "and mood. So the next time you think sleep is wasted "
-            "time, remember that rest is part of the work."
+            "and mood. Remember that rest is part of the work."
         ),
+        "scenes": [
+            ("NIGHT", "TIME TO REST", "moon"),
+            ("BRAIN", "YOUR BRAIN STAYS BUSY", "brain"),
+            ("MEMORY", "PROCESSING MEMORIES", "brain"),
+            ("REST", "RECOVERY MATTERS", "plant"),
+            ("ENERGY", "RECHARGE YOURSELF", "sun"),
+            ("HEALTH", "REST IS PART OF THE WORK", "sun"),
+        ],
     },
 ]
 
 
-def load_font(size, bold=False):
-    """Load a font available on the GitHub Actions Ubuntu runner."""
-    if bold:
-        paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-        ]
-    else:
-        paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-        ]
+def get_font(size, bold=True):
+    paths = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if bold else
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
+        if bold else
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+    ]
 
     for path in paths:
         if Path(path).exists():
-            return ImageFont.truetype(path, size=size)
+            return ImageFont.truetype(path, size)
 
     return ImageFont.load_default()
 
 
-def split_into_captions(text, max_words=6):
-    """Split narration into short subtitle phrases."""
-    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
-    chunks = []
-
-    for sentence in sentences:
-        words = sentence.split()
-
-        for i in range(0, len(words), max_words):
-            chunk = " ".join(words[i:i + max_words])
-            if chunk:
-                chunks.append(chunk)
-
-    return chunks
+FONT_BIG = get_font(48)
+FONT_MED = get_font(32)
+FONT_SMALL = get_font(22)
 
 
 def wrap_text(draw, text, font, max_width):
-    """Wrap text so it fits within the screen."""
     words = text.split()
     lines = []
-    current_line = ""
+    line = ""
 
     for word in words:
-        test_line = f"{current_line} {word}".strip()
-        box = draw.textbbox((0, 0), test_line, font=font)
+        trial = f"{line} {word}".strip()
 
-        if box[2] - box[0] <= max_width:
-            current_line = test_line
+        if draw.textbbox((0, 0), trial, font=font)[2] <= max_width:
+            line = trial
         else:
-            if current_line:
-                lines.append(current_line)
-            current_line = word
+            if line:
+                lines.append(line)
+            line = word
 
-    if current_line:
-        lines.append(current_line)
+    if line:
+        lines.append(line)
 
     return lines
 
 
-def make_gradient_background():
-    """Create an original dark gradient background."""
-    y = np.linspace(0, 1, HEIGHT)[:, None, None]
+def draw_centered(draw, text, y, font, fill, max_width=620):
+    lines = wrap_text(draw, text, font, max_width)
+    line_height = font.size + 12
 
-    top = np.array([13, 19, 48], dtype=np.float32)
-    bottom = np.array([48, 17, 72], dtype=np.float32)
+    for line in lines:
+        box = draw.textbbox((0, 0), line, font=font)
+        x = (W - (box[2] - box[0])) // 2
 
-    gradient = top + (bottom - top) * y
-    gradient = np.repeat(gradient, WIDTH, axis=1)
+        draw.text(
+            (x + 2, y + 3),
+            line,
+            font=font,
+            fill=(0, 0, 0, 150),
+        )
+        draw.text((x, y), line, font=font, fill=fill)
+        y += line_height
 
-    return np.clip(gradient, 0, 255).astype(np.uint8)
+    return y
 
 
-def build_video(script, audio_path, video_path):
-    """Render a vertical video with original animated graphics."""
+def make_captions(text):
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    captions = []
+
+    for sentence in sentences:
+        words = sentence.split()
+
+        # Keep subtitles short and readable.
+        for i in range(0, len(words), 5):
+            phrase = " ".join(words[i:i + 5])
+            if phrase:
+                captions.append(phrase)
+
+    return captions
+
+
+def draw_icon(draw, kind, cx, cy, size, t, scene_index):
+    """Draw original vector-style animated illustrations."""
+
+    pulse = 1 + 0.06 * math.sin(t * 3)
+    r = int(size * pulse)
+
+    blue = (112, 178, 255, 255)
+    purple = (210, 139, 255, 255)
+    white = (245, 247, 255, 255)
+
+    if kind == "moon":
+        draw.ellipse(
+            (cx-r, cy-r, cx+r, cy+r),
+            fill=(255, 219, 135, 255),
+        )
+        draw.ellipse(
+            (cx-r//3, cy-r-10, cx+r+20, cy+r//2),
+            fill=(25, 25, 65, 255),
+        )
+
+        for i in range(7):
+            x = cx + int(math.sin(t+i)*180)
+            y = cy + int(math.cos(t*0.8+i)*130)
+            draw.ellipse((x-3, y-3, x+3, y+3), fill=white)
+
+    elif kind == "stairs":
+        for i in range(5):
+            x = cx - 160 + i * 60
+            y = cy + 110 - i * 55 + int(4 * math.sin(t*2+i))
+            draw.rectangle(
+                (x, y, x+65, cy+150),
+                fill=(70+i*20, 100+i*18, 210, 255),
+            )
+
+        x = cx - 100 + int((t*35) % 220)
+        y = cy - 25 - int((t*35) % 220) * 0.8
+
+        draw.ellipse((x-15, y-15, x+15, y+15), fill=white)
+        draw.line((x, y+15, x, y+65), fill=purple, width=9)
+        draw.line((x, y+30, x-18, y+48), fill=purple, width=7)
+        draw.line((x, y+30, x+18, y+45), fill=purple, width=7)
+
+    elif kind == "book":
+        left = (cx-145, cy-95, cx, cy+100)
+        right = (cx, cy-95, cx+145, cy+100)
+
+        draw.rounded_rectangle(left, radius=12, fill=blue)
+        draw.rounded_rectangle(right, radius=12, fill=purple)
+        draw.line((cx, cy-95, cx, cy+100), fill=white, width=5)
+
+        for i in range(4):
+            yy = cy - 45 + i*38
+            draw.line((cx-115, yy, cx-25, yy), fill=white, width=3)
+            draw.line((cx+25, yy, cx+115, yy), fill=white, width=3)
+
+        angle = math.sin(t*2) * 12
+        draw.arc(
+            (cx-180, cy-130, cx+180, cy+130),
+            start=int(180+angle),
+            end=int(360+angle),
+            fill=white,
+            width=3,
+        )
+
+    elif kind == "clock":
+        draw.ellipse(
+            (cx-r, cy-r, cx+r, cy+r),
+            outline=white,
+            width=8,
+        )
+
+        for i in range(12):
+            angle = i * math.tau / 12
+            x1 = cx + math.sin(angle) * (r-15)
+            y1 = cy - math.cos(angle) * (r-15)
+            x2 = cx + math.sin(angle) * (r-28)
+            y2 = cy - math.cos(angle) * (r-28)
+            draw.line((x1, y1, x2, y2), fill=blue, width=4)
+
+        angle = t * 2
+        draw.line(
+            (cx, cy, cx+math.sin(angle)*r*0.55,
+             cy-math.cos(angle)*r*0.55),
+            fill=purple,
+            width=8,
+        )
+        draw.line(
+            (cx, cy, cx+math.sin(angle*0.2)*r*0.8,
+             cy-math.cos(angle*0.2)*r*0.8),
+            fill=white,
+            width=5,
+        )
+
+    elif kind == "plant":
+        ground = cy + 130
+        sway = math.sin(t*2) * 25
+        grow = min(1.0, 0.25 + t/5)
+
+        draw.line(
+            (cx, ground, cx+sway, ground-190*grow),
+            fill=(100, 230, 160, 255),
+            width=12,
+        )
+
+        tip_x = cx+sway
+        tip_y = ground-190*grow
+
+        for side in (-1, 1):
+            leaf_x = tip_x + side*65
+            leaf_y = tip_y + 55
+            draw.ellipse(
+                (leaf_x-40, leaf_y-20, leaf_x+40, leaf_y+20),
+                fill=(75, 210, 145, 255),
+            )
+
+        draw.ellipse(
+            (cx-125, ground-8, cx+125, ground+22),
+            fill=(150, 115, 90, 255),
+        )
+
+    elif kind == "waves":
+        for row in range(5):
+            y = cy - 100 + row*50
+
+            points = []
+            for x in range(-20, W+40, 10):
+                yy = y + math.sin(x*0.018 + t*2 + row)*18
+                points.append((x, yy))
+
+            draw.line(
+                points,
+                fill=(65+row*18, 145+row*12, 245, 255),
+                width=6,
+            )
+
+    elif kind == "rays":
+        for i in range(12):
+            angle = i * math.tau / 12 + t*0.25
+            x = cx + math.cos(angle)*r
+            y = cy + math.sin(angle)*r
+            x2 = cx + math.cos(angle)*(r+100)
+            y2 = cy + math.sin(angle)*(r+100)
+
+            draw.line((x, y, x2, y2), fill=blue, width=5)
+
+        draw.ellipse(
+            (cx-65, cy-65, cx+65, cy+65),
+            fill=(255, 220, 120, 255),
+        )
+
+    elif kind == "brain":
+        for i in range(5):
+            ox = (i-2)*45
+            oy = math.sin(t*2+i)*8
+            draw.ellipse(
+                (cx+ox-40, cy-50+oy, cx+ox+40, cy+50+oy),
+                fill=(190, 120+i*12, 220, 255),
+                outline=white,
+                width=3,
+            )
+
+        draw.line(
+            (cx, cy-45, cx, cy+45),
+            fill=white,
+            width=4,
+        )
+
+    elif kind == "sun":
+        for i in range(12):
+            angle = i * math.tau / 12 + t*0.15
+            x1 = cx + math.cos(angle)*(r+15)
+            y1 = cy + math.sin(angle)*(r+15)
+            x2 = cx + math.cos(angle)*(r+65)
+            y2 = cy + math.sin(angle)*(r+65)
+
+            draw.line(
+                (x1, y1, x2, y2),
+                fill=(255, 211, 120, 255),
+                width=7,
+            )
+
+        draw.ellipse(
+            (cx-r, cy-r, cx+r, cy+r),
+            fill=(255, 204, 95, 255),
+        )
+
+
+def render_video(story, audio_path, video_path):
     audio = AudioFileClip(str(audio_path))
     duration = audio.duration
 
-    background = make_gradient_background()
+    captions = make_captions(story["text"])
+    caption_weights = [max(1, len(c.split())) for c in captions]
+    total_words = sum(caption_weights)
 
-    title_font = load_font(42, bold=True)
-    subtitle_font = load_font(31, bold=True)
-    small_font = load_font(20)
+    caption_ranges = []
+    now = 0.0
 
-    title = script["title"]
-    captions = split_into_captions(script["text"])
+    for caption, weight in zip(captions, caption_weights):
+        length = duration * weight / total_words
+        caption_ranges.append((now, now + length, caption))
+        now += length
 
-    # Estimate subtitle timing according to the number of words.
-    weights = [max(1, len(caption.split())) for caption in captions]
-    total_weight = sum(weights)
+    scene_duration = duration / len(story["scenes"])
 
-    caption_times = []
-    current_time = 0.0
+    # Original generated gradient background.
+    y = np.linspace(0, 1, H)[:, None, None]
+    top = np.array([9, 17, 47], dtype=np.float32)
+    bottom = np.array([63, 20, 83], dtype=np.float32)
 
-    for weight in weights:
-        segment_duration = duration * weight / total_weight
-        caption_times.append(
-            (current_time, current_time + segment_duration)
+    background = np.repeat(
+        top + (bottom-top)*y,
+        W,
+        axis=1,
+    )
+
+    background = np.clip(background, 0, 255).astype(np.uint8)
+
+    def make_frame(t):
+        img = Image.fromarray(background.copy()).convert("RGBA")
+        draw = ImageDraw.Draw(img, "RGBA")
+
+        scene_index = min(
+            len(story["scenes"])-1,
+            int(t / scene_duration),
         )
-        current_time += segment_duration
 
-    # Deterministic positions for decorative moving circles.
-    rng = random.Random(42)
-    particles = []
+        label, headline, icon = story["scenes"][scene_index]
+        scene_t = t - scene_index * scene_duration
 
-    for _ in range(24):
-        particles.append({
-            "x": rng.randint(20, WIDTH - 20),
-            "y": rng.randint(0, HEIGHT),
-            "radius": rng.randint(3, 12),
-            "speed": rng.uniform(8, 28),
-            "phase": rng.uniform(0, math.tau),
-        })
+        # Camera-like zoom/pan effect on the main illustration.
+        zoom = 1 + 0.035 * math.sin(scene_t * 1.2)
+        icon_size = int(105 * zoom)
 
-    def render_frame(t):
-        frame = background.copy()
-        image = Image.fromarray(frame)
-        draw = ImageDraw.Draw(image, "RGBA")
-
-        # Floating circles create simple original animation.
-        for particle in particles:
-            x = particle["x"] + math.sin(
-                t * 0.7 + particle["phase"]
-            ) * 24
-
-            y = (
-                particle["y"] - t * particle["speed"]
-            ) % HEIGHT
-
-            r = particle["radius"]
+        # Floating particles move continuously.
+        for i in range(22):
+            px = (i*97 + int(t*24*(i%3+1))) % W
+            py = (i*173 - int(t*35*(i%4+1))) % H
+            radius = 2 + i % 5
 
             draw.ellipse(
-                (x - r, y - r, x + r, y + r),
-                fill=(120, 170, 255, 65),
+                (px-radius, py-radius, px+radius, py+radius),
+                fill=(120, 170, 255, 100),
             )
 
-        # Top label.
+        # Scene label.
         draw.rounded_rectangle(
-            (42, 54, 265, 101),
-            radius=18,
-            fill=(255, 255, 255, 24),
-            outline=(180, 190, 255, 100),
+            (40, 55, 310, 110),
+            radius=22,
+            fill=(255, 255, 255, 25),
+            outline=(170, 190, 255, 170),
             width=2,
         )
 
         draw.text(
-            (59, 66),
-            "DID YOU KNOW?",
-            font=small_font,
-            fill=(220, 225, 255),
+            (60, 68),
+            label,
+            font=FONT_SMALL,
+            fill=(220, 230, 255, 255),
         )
 
-        # Main title.
-        title_lines = wrap_text(
-            draw, title, title_font, WIDTH - 100
+        # Moving scene headline.
+        title_y = 175 + int(8 * math.sin(scene_t*2))
+        draw_centered(
+            draw,
+            headline,
+            title_y,
+            FONT_BIG,
+            (255, 255, 255, 255),
         )
 
-        title_y = 220
-
-        for line in title_lines:
-            box = draw.textbbox((0, 0), line, font=title_font)
-            line_width = box[2] - box[0]
-            x = (WIDTH - line_width) // 2
-
-            draw.text(
-                (x + 2, title_y + 3),
-                line,
-                font=title_font,
-                fill=(0, 0, 0, 100),
-            )
-
-            draw.text(
-                (x, title_y),
-                line,
-                font=title_font,
-                fill=(255, 255, 255),
-            )
-
-            title_y += 60
-
-        # Decorative centre ring.
-        center_x = WIDTH // 2
-        center_y = 570
-
-        pulse = 1 + 0.08 * math.sin(t * 2.0)
-        radius = int(105 * pulse)
-
-        draw.ellipse(
-            (
-                center_x - radius,
-                center_y - radius,
-                center_x + radius,
-                center_y + radius,
-            ),
-            outline=(150, 180, 255, 150),
-            width=4,
+        # Different animated illustration for each scene.
+        draw_icon(
+            draw,
+            icon,
+            W//2,
+            575,
+            icon_size,
+            scene_t,
+            scene_index,
         )
 
-        inner_radius = int(radius * 0.66)
-
-        draw.ellipse(
-            (
-                center_x - inner_radius,
-                center_y - inner_radius,
-                center_x + inner_radius,
-                center_y + inner_radius,
-            ),
-            outline=(230, 180, 255, 180),
-            width=3,
-        )
-
-        # Select the current subtitle.
+        # Current subtitle follows approximate narration timing.
         caption = captions[-1]
 
-        for index, (start, end) in enumerate(caption_times):
+        for start, end, text in caption_ranges:
             if start <= t < end:
-                caption = captions[index]
+                caption = text
                 break
 
-        # Subtitle panel.
-        panel_top = 850
-        panel_bottom = 1050
-
         draw.rounded_rectangle(
-            (35, panel_top, WIDTH - 35, panel_bottom),
-            radius=28,
-            fill=(5, 8, 25, 220),
-            outline=(150, 170, 255, 160),
+            (35, 875, W-35, 1085),
+            radius=26,
+            fill=(5, 7, 24, 225),
+            outline=(155, 175, 255, 180),
             width=2,
         )
 
-        subtitle_lines = wrap_text(
-            draw, caption, subtitle_font, WIDTH - 110
+        draw_centered(
+            draw,
+            caption,
+            925,
+            FONT_MED,
+            (255, 255, 255, 255),
+            max_width=590,
         )
 
-        line_height = 44
-        total_height = len(subtitle_lines) * line_height
-        subtitle_y = (
-            panel_top + (panel_bottom - panel_top - total_height) // 2
-        )
-
-        for line in subtitle_lines:
-            box = draw.textbbox(
-                (0, 0), line, font=subtitle_font
-            )
-            line_width = box[2] - box[0]
-            x = (WIDTH - line_width) // 2
-
-            draw.text(
-                (x, subtitle_y),
-                line,
-                font=subtitle_font,
-                fill=(255, 255, 255),
-            )
-
-            subtitle_y += line_height
-
-        # Progress bar.
-        bar_left = 45
-        bar_right = WIDTH - 45
-        bar_y = HEIGHT - 65
+        # Bottom progress indicator.
+        left, right, py = 45, W-45, H-65
 
         draw.rounded_rectangle(
-            (bar_left, bar_y, bar_right, bar_y + 10),
+            (left, py, right, py+9),
             radius=5,
-            fill=(255, 255, 255, 55),
+            fill=(255, 255, 255, 70),
         )
 
-        progress = min(1.0, max(0.0, t / duration))
-        progress_right = int(
-            bar_left + (bar_right - bar_left) * progress
-        )
+        progress = max(0, min(1, t/duration))
+        end_x = int(left + (right-left)*progress)
 
         draw.rounded_rectangle(
-            (bar_left, bar_y, max(bar_left + 1, progress_right), bar_y + 10),
+            (left, py, max(left+1, end_x), py+9),
             radius=5,
             fill=(160, 190, 255, 255),
         )
 
-        return np.asarray(image.convert("RGB"))
+        return np.asarray(img.convert("RGB"))
 
-    video = VideoClip(render_frame, duration=duration)
+    video = VideoClip(make_frame, duration=duration)
     video = video.with_audio(audio)
 
     video.write_videofile(
@@ -360,6 +504,61 @@ def build_video(script, audio_path, video_path):
         audio_codec="aac",
         preset="ultrafast",
         threads=2,
+        logger="bar",
+    )
+
+    video.close()
+    audio.close()
+
+
+async def generate_voice(text, path):
+    tts = edge_tts.Communicate(
+        text=text,
+        voice=VOICE,
+    )
+    await tts.save(str(path))
+
+
+async def main():
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Choose one story per workflow run.
+    story = random.choice(STORIES)
+
+    safe_title = re.sub(
+        r"[^a-zA-Z0-9]+",
+        "_",
+        story["title"].lower(),
+    ).strip("_")
+
+    audio_path = AUDIO_DIR / f"{today}_{safe_title}.mp3"
+    video_path = VIDEO_DIR / f"{today}_{safe_title}.mp4"
+    script_path = SCRIPT_DIR / f"script_{today}.json"
+
+    print("="*45)
+    print("MEDIAFLOW V2 - ANIMATED SHORTS")
+    print(f"Title: {story['title']}")
+    print(f"Voice: {VOICE}")
+    print("="*45)
+
+    script_path.write_text(
+        __import__("json").dumps(story, indent=2),
+        encoding="utf-8",
+    )
+
+    print("1/2 Generating AI voice...")
+    await generate_voice(story["text"], audio_path)
+
+    print("2/2 Rendering animated video...")
+    render_video(story, audio_path, video_path)
+
+    print("\nSUCCESS")
+    print(f"Audio: {audio_path}")
+    print(f"Video: {video_path}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())       threads=2,
         logger=None,
     )
 
