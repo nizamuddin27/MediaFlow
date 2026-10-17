@@ -1,9 +1,15 @@
 from datetime import datetime, timezone
 from pathlib import Path
+import asyncio
 import random
 import json
+import re
+import edge_tts
 
 OUTPUT_DIR = Path("output")
+VOICE_DIR = OUTPUT_DIR / "audio"
+
+VOICE = "en-US-GuyNeural"
 
 FACTS = [
     {
@@ -38,34 +44,65 @@ FACTS = [
     }
 ]
 
-def main():
-    OUTPUT_DIR.mkdir(exist_ok=True)
+
+def safe_filename(title):
+    name = re.sub(r"[^a-zA-Z0-9]+", "_", title).strip("_")
+    return name.lower()
+
+
+async def generate_voice(text, output_file):
+    communicator = edge_tts.Communicate(
+        text=text,
+        voice=VOICE
+    )
+    await communicator.save(str(output_file))
+
+
+async def main():
+    VOICE_DIR.mkdir(parents=True, exist_ok=True)
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     selected = random.choice(FACTS)
+
+    filename = safe_filename(selected["title"])
+    audio_file = VOICE_DIR / f"{today}_{filename}.mp3"
+    script_file = OUTPUT_DIR / f"script_{today}.json"
 
     video_data = {
         "date": today,
         "title": selected["title"],
         "script": selected["script"],
-        "status": "script_generated"
+        "voice": VOICE,
+        "audio_file": str(audio_file),
+        "status": "generating"
     }
 
-    output_file = OUTPUT_DIR / f"script_{today}.json"
-    output_file.write_text(
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    script_file.write_text(
         json.dumps(video_data, indent=2),
         encoding="utf-8"
     )
 
     print("=" * 40)
-    print("MEDIAFLOW - SCRIPT GENERATOR")
+    print("MEDIAFLOW - AI VOICE GENERATOR")
     print("=" * 40)
     print(f"Title: {selected['title']}")
-    print(f"Script: {selected['script']}")
-    print(f"Saved to: {output_file}")
-    print("Status: Script generated successfully.")
+    print(f"Voice: {VOICE}")
+    print("Generating audio...")
+
+    await generate_voice(selected["script"], audio_file)
+
+    video_data["status"] = "audio_generated"
+    script_file.write_text(
+        json.dumps(video_data, indent=2),
+        encoding="utf-8"
+    )
+
+    print(f"Audio saved to: {audio_file}")
+    print("Status: Audio generated successfully.")
     print("=" * 40)
 
+
 if __name__ == "__main__":
-    main()
-print("MEDIAFLOW_NEW_VERSION_2026")
+    asyncio.run(main())
