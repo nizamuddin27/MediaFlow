@@ -24,10 +24,13 @@ jobs:
       - name: Run automation
         run: python main.py
 
-      - name: Save generated audio
+      - name: Save generated media
         uses: actions/upload-artifact@v4
         with:
-          name: mediaflow-audio
-          path: output/audio/*.mp3
+          name: mediaflow-videos
+          path: |
+            output/audio/*.mp3
+            output/video/*.mp4
+            output/script_*.json
           if-no-files-found: error
           retention-days: 7
