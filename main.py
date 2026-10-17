@@ -11,7 +11,6 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from moviepy import AudioFileClip, VideoClip
 
-
 # =========================================
 # MEDIAFLOW V2 - ANIMATED SHORTS GENERATOR
 # =========================================
@@ -28,8 +27,6 @@ SCRIPT_DIR = Path("output")
 for folder in (AUDIO_DIR, VIDEO_DIR, SCRIPT_DIR):
     folder.mkdir(parents=True, exist_ok=True)
 
-
-# Original stories and their six visual scenes.
 STORIES = [
     {
         "title": "The Power of Small Habits",
@@ -172,7 +169,7 @@ def split_captions(text, max_words=5):
 
 
 def draw_illustration(draw, kind, cx, cy, size, t):
-    """Draw moving vector illustrations without external footage."""
+    """Draw original animated vector illustrations."""
 
     pulse = 1 + 0.06 * math.sin(t * 2.5)
     radius = int(size * pulse)
@@ -198,23 +195,23 @@ def draw_illustration(draw, kind, cx, cy, size, t):
         )
 
         for i in range(10):
-            x = cx + math.sin(t+i) * (radius+100)
-            y = cy + math.cos(t*0.7+i) * (radius+120)
+            x = int(cx + math.sin(t+i) * (radius+100))
+            y = int(cy + math.cos(t*0.7+i) * (radius+120))
             draw.ellipse((x-3, y-3, x+3, y+3), fill=white)
 
     elif kind == "stairs":
         for i in range(5):
             x = cx - 165 + i * 65
             y = cy + 120 - i * 50
+
             draw.rectangle(
                 (x, y, x+70, cy+150),
                 fill=(60+i*18, 90+i*15, 200, 255),
             )
 
-        # An animated person climbing the stairs.
         step = int((t * 1.3) % 5)
-        px = cx - 130 + step * 65
-        py = cy + 90 - step * 50
+        px = int(cx - 130 + step * 65)
+        py = int(cy + 90 - step * 50)
 
         draw.ellipse(
             (px-14, py-50, px+14, py-22),
@@ -257,7 +254,6 @@ def draw_illustration(draw, kind, cx, cy, size, t):
             radius=12,
             fill=purple,
         )
-
         draw.line(
             (cx, cy-100, cx, cy+100),
             fill=white,
@@ -277,11 +273,9 @@ def draw_illustration(draw, kind, cx, cy, size, t):
                 width=3,
             )
 
-        # Floating pages.
-        angle = t * 1.7
         for i in range(3):
-            x = cx + math.sin(angle+i*2) * 190
-            y = cy + math.cos(angle+i*2) * 130
+            x = int(cx + math.sin(t*1.7+i*2) * 190)
+            y = int(cy + math.cos(t*1.7+i*2) * 130)
 
             draw.rounded_rectangle(
                 (x-12, y-18, x+12, y+18),
@@ -298,20 +292,21 @@ def draw_illustration(draw, kind, cx, cy, size, t):
 
         for i in range(12):
             angle = i * math.tau / 12
-            x1 = cx + math.sin(angle) * (radius-15)
-            y1 = cy - math.cos(angle) * (radius-15)
-            x2 = cx + math.sin(angle) * (radius-30)
-            y2 = cy - math.cos(angle) * (radius-30)
+            x1 = int(cx + math.sin(angle) * (radius-15))
+            y1 = int(cy - math.cos(angle) * (radius-15))
+            x2 = int(cx + math.sin(angle) * (radius-30))
+            y2 = int(cy - math.cos(angle) * (radius-30))
 
             draw.line((x1, y1, x2, y2), fill=blue, width=4)
 
         angle = t * 2.5
+
         draw.line(
             (
                 cx,
                 cy,
-                cx + math.sin(angle)*radius*0.65,
-                cy - math.cos(angle)*radius*0.65,
+                int(cx + math.sin(angle)*radius*0.65),
+                int(cy - math.cos(angle)*radius*0.65),
             ),
             fill=purple,
             width=8,
@@ -321,8 +316,8 @@ def draw_illustration(draw, kind, cx, cy, size, t):
             (
                 cx,
                 cy,
-                cx + math.sin(angle*0.18)*radius*0.8,
-                cy - math.cos(angle*0.18)*radius*0.8,
+                int(cx + math.sin(angle*0.18)*radius*0.8),
+                int(cy - math.cos(angle*0.18)*radius*0.8),
             ),
             fill=white,
             width=5,
@@ -333,8 +328,8 @@ def draw_illustration(draw, kind, cx, cy, size, t):
         sway = math.sin(t*2) * 25
         growth = min(1.0, 0.25 + t/5)
 
-        tip_x = cx + sway
-        tip_y = ground - 190*growth
+        tip_x = int(cx + sway)
+        tip_y = int(ground - 190*growth)
 
         draw.line(
             (cx, ground, tip_x, tip_y),
@@ -363,11 +358,11 @@ def draw_illustration(draw, kind, cx, cy, size, t):
 
     elif kind == "waves":
         for row in range(6):
-            y = cy - 125 + row*48
+            y = int(cy - 125 + row*48)
             points = []
 
             for x in range(-10, WIDTH+20, 10):
-                yy = y + math.sin(x*0.018 + t*2 + row)*18
+                yy = int(y + math.sin(x*0.018 + t*2 + row)*18)
                 points.append((x, yy))
 
             draw.line(
@@ -380,10 +375,10 @@ def draw_illustration(draw, kind, cx, cy, size, t):
         for i in range(14):
             angle = i * math.tau / 14 + t*0.3
 
-            x1 = cx + math.cos(angle)*(radius+15)
-            y1 = cy + math.sin(angle)*(radius+15)
-            x2 = cx + math.cos(angle)*(radius+95)
-            y2 = cy + math.sin(angle)*(radius+95)
+            x1 = int(cx + math.cos(angle)*(radius+15))
+            y1 = int(cy + math.sin(angle)*(radius+15))
+            x2 = int(cx + math.cos(angle)*(radius+95))
+            y2 = int(cy + math.sin(angle)*(radius+95))
 
             draw.line(
                 (x1, y1, x2, y2),
@@ -399,7 +394,7 @@ def draw_illustration(draw, kind, cx, cy, size, t):
     elif kind == "brain":
         for i in range(5):
             offset_x = (i-2)*45
-            offset_y = math.sin(t*2+i)*8
+            offset_y = int(math.sin(t*2+i)*8)
 
             draw.ellipse(
                 (
@@ -423,10 +418,10 @@ def draw_illustration(draw, kind, cx, cy, size, t):
         for i in range(12):
             angle = i*math.tau/12 + t*0.2
 
-            x1 = cx + math.cos(angle)*(radius+15)
-            y1 = cy + math.sin(angle)*(radius+15)
-            x2 = cx + math.cos(angle)*(radius+65)
-            y2 = cy + math.sin(angle)*(radius+65)
+            x1 = int(cx + math.cos(angle)*(radius+15))
+            y1 = int(cy + math.sin(angle)*(radius+15))
+            x2 = int(cx + math.cos(angle)*(radius+65))
+            y2 = int(cy + math.sin(angle)*(radius+65))
 
             draw.line(
                 (x1, y1, x2, y2),
@@ -444,8 +439,12 @@ def render_video(story, audio_path, video_path):
     audio = AudioFileClip(str(audio_path))
     duration = audio.duration
 
+    if not duration or duration <= 0:
+        audio.close()
+        raise ValueError("Generated audio has no valid duration.")
+
     captions = split_captions(story["text"])
-    weights = [max(1, len(c.split())) for c in captions]
+    weights = [max(1, len(caption.split())) for caption in captions]
     total_words = sum(weights)
 
     caption_ranges = []
@@ -461,13 +460,15 @@ def render_video(story, audio_path, video_path):
     scenes = story["scenes"]
     scene_duration = duration / len(scenes)
 
-    # Pre-rendered gradient; animated elements are drawn each frame.
-    y = np.linspace(0, 1, HEIGHT)[:, None, None]
+    y_gradient = np.linspace(
+        0, 1, HEIGHT, dtype=np.float32
+    )[:, None, None]
+
     top = np.array([9, 17, 47], dtype=np.float32)
     bottom = np.array([63, 20, 83], dtype=np.float32)
 
     background = np.repeat(
-        top + (bottom-top)*y,
+        top + (bottom-top)*y_gradient,
         WIDTH,
         axis=1,
     )
@@ -485,7 +486,7 @@ def render_video(story, audio_path, video_path):
     ]
 
     def make_frame(t):
-        img = Image.fromarray(background.copy()).convert("RGBA")
+        img = Image.fromarray(background).convert("RGBA")
         draw = ImageDraw.Draw(img, "RGBA")
 
         scene_index = min(
@@ -496,17 +497,15 @@ def render_video(story, audio_path, video_path):
         headline, illustration = scenes[scene_index]
         local_time = t - scene_index*scene_duration
 
-        # Moving particles and a gentle camera-like zoom.
         for x, y0, r, speed in particles:
-            px = (x + math.sin(t*0.7+x)*20) % WIDTH
-            py = (y0 - t*speed) % HEIGHT
+            px = int((x + math.sin(t*0.7+x)*20) % WIDTH)
+            py = int((y0 - t*speed) % HEIGHT)
 
             draw.ellipse(
                 (px-r, py-r, px+r, py+r),
                 fill=(125, 170, 255, 95),
             )
 
-        # Header label.
         draw.rounded_rectangle(
             (40, 55, 290, 105),
             radius=20,
@@ -522,7 +521,6 @@ def render_video(story, audio_path, video_path):
             fill=(225, 230, 255, 255),
         )
 
-        # Main scene title.
         title_y = 165 + int(9*math.sin(local_time*2))
 
         draw_centered(
@@ -533,7 +531,6 @@ def render_video(story, audio_path, video_path):
             (255, 255, 255, 255),
         )
 
-        # Scene-specific animated illustration.
         zoom = 1 + 0.04*math.sin(local_time*1.3)
 
         draw_illustration(
@@ -545,7 +542,6 @@ def render_video(story, audio_path, video_path):
             local_time,
         )
 
-        # Subtitle changes with the narration.
         caption = captions[-1]
 
         for start, end, phrase in caption_ranges:
@@ -588,7 +584,6 @@ def render_video(story, audio_path, video_path):
 
             y_text += line_height
 
-        # Progress bar.
         left = 45
         right = WIDTH-45
         bar_y = HEIGHT-65
@@ -629,279 +624,7 @@ def render_video(story, audio_path, video_path):
     finally:
         if video is not None:
             video.close()
-
         audio.close()
-
-
-async def generate_voice(text, audio_path):
-    tts = edge_tts.Communicate(
-        text=text,
-        voice=VOICE,
-    )
-    await tts.save(str(audio_path))
-
-
-async def main():
-    today = datetime.now().strftime("%Y-%m-%d")
-    story = random.choice(STORIES)
-
-    safe_title = re.sub(
-        r"[^a-zA-Z0-9]+",
-        "_",
-        story["title"].lower(),
-    ).strip("_")
-
-    audio_path = AUDIO_DIR / f"{today}_{safe_title}.mp3"
-    video_path = VIDEO_DIR / f"{today}_{safe_title}.mp4"
-    script_path = SCRIPT_DIR / f"script_{today}.json"
-
-    print("="*45)
-    print("MEDIAFLOW V2 - ANIMATED SHORTS")
-    print(f"Title: {story['title']}")
-    print("="*45)
-
-    script_path.write_text(
-        json.dumps(story, indent=2),
-        encoding="utf-8",
-    )
-
-    print("Step 1: Generating AI narration...")
-    await generate_voice(story["text"], audio_path)
-
-    print("Step 2: Rendering animated video...")
-    render_video(story, audio_path, video_path)
-
-    print("\nSUCCESS")
-    print(f"Audio: {audio_path}")
-    print(f"Video: {video_path}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main()))
-            y2 = cy + math.sin(angle)*(r+65)
-
-            draw.line(
-                (x1, y1, x2, y2),
-                fill=(255, 211, 120, 255),
-                width=7,
-            )
-
-        draw.ellipse(
-            (cx-r, cy-r, cx+r, cy+r),
-            fill=(255, 204, 95, 255),
-        )
-
-
-def render_video(story, audio_path, video_path):
-    audio = AudioFileClip(str(audio_path))
-    duration = audio.duration
-
-    captions = make_captions(story["text"])
-    caption_weights = [max(1, len(c.split())) for c in captions]
-    total_words = sum(caption_weights)
-
-    caption_ranges = []
-    now = 0.0
-
-    for caption, weight in zip(captions, caption_weights):
-        length = duration * weight / total_words
-        caption_ranges.append((now, now + length, caption))
-        now += length
-
-    scene_duration = duration / len(story["scenes"])
-
-    # Original generated gradient background.
-    y = np.linspace(0, 1, H)[:, None, None]
-    top = np.array([9, 17, 47], dtype=np.float32)
-    bottom = np.array([63, 20, 83], dtype=np.float32)
-
-    background = np.repeat(
-        top + (bottom-top)*y,
-        W,
-        axis=1,
-    )
-
-    background = np.clip(background, 0, 255).astype(np.uint8)
-
-    def make_frame(t):
-        img = Image.fromarray(background.copy()).convert("RGBA")
-        draw = ImageDraw.Draw(img, "RGBA")
-
-        scene_index = min(
-            len(story["scenes"])-1,
-            int(t / scene_duration),
-        )
-
-        label, headline, icon = story["scenes"][scene_index]
-        scene_t = t - scene_index * scene_duration
-
-        # Camera-like zoom/pan effect on the main illustration.
-        zoom = 1 + 0.035 * math.sin(scene_t * 1.2)
-        icon_size = int(105 * zoom)
-
-        # Floating particles move continuously.
-        for i in range(22):
-            px = (i*97 + int(t*24*(i%3+1))) % W
-            py = (i*173 - int(t*35*(i%4+1))) % H
-            radius = 2 + i % 5
-
-            draw.ellipse(
-                (px-radius, py-radius, px+radius, py+radius),
-                fill=(120, 170, 255, 100),
-            )
-
-        # Scene label.
-        draw.rounded_rectangle(
-            (40, 55, 310, 110),
-            radius=22,
-            fill=(255, 255, 255, 25),
-            outline=(170, 190, 255, 170),
-            width=2,
-        )
-
-        draw.text(
-            (60, 68),
-            label,
-            font=FONT_SMALL,
-            fill=(220, 230, 255, 255),
-        )
-
-        # Moving scene headline.
-        title_y = 175 + int(8 * math.sin(scene_t*2))
-        draw_centered(
-            draw,
-            headline,
-            title_y,
-            FONT_BIG,
-            (255, 255, 255, 255),
-        )
-
-        # Different animated illustration for each scene.
-        draw_icon(
-            draw,
-            icon,
-            W//2,
-            575,
-            icon_size,
-            scene_t,
-            scene_index,
-        )
-
-        # Current subtitle follows approximate narration timing.
-        caption = captions[-1]
-
-        for start, end, text in caption_ranges:
-            if start <= t < end:
-                caption = text
-                break
-
-        draw.rounded_rectangle(
-            (35, 875, W-35, 1085),
-            radius=26,
-            fill=(5, 7, 24, 225),
-            outline=(155, 175, 255, 180),
-            width=2,
-        )
-
-        draw_centered(
-            draw,
-            caption,
-            925,
-            FONT_MED,
-            (255, 255, 255, 255),
-            max_width=590,
-        )
-
-        # Bottom progress indicator.
-        left, right, py = 45, W-45, H-65
-
-        draw.rounded_rectangle(
-            (left, py, right, py+9),
-            radius=5,
-            fill=(255, 255, 255, 70),
-        )
-
-        progress = max(0, min(1, t/duration))
-        end_x = int(left + (right-left)*progress)
-
-        draw.rounded_rectangle(
-            (left, py, max(left+1, end_x), py+9),
-            radius=5,
-            fill=(160, 190, 255, 255),
-        )
-
-        return np.asarray(img.convert("RGB"))
-
-    video = VideoClip(make_frame, duration=duration)
-    video = video.with_audio(audio)
-
-    video.write_videofile(
-        str(video_path),
-        fps=FPS,
-        codec="libx264",
-        audio_codec="aac",
-        preset="ultrafast",
-        threads=2,
-        logger="bar",
-    )
-
-    video.close()
-    audio.close()
-
-
-async def generate_voice(text, path):
-    tts = edge_tts.Communicate(
-        text=text,
-        voice=VOICE,
-    )
-    await tts.save(str(path))
-
-
-async def main():
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    # Choose one story per workflow run.
-    story = random.choice(STORIES)
-
-    safe_title = re.sub(
-        r"[^a-zA-Z0-9]+",
-        "_",
-        story["title"].lower(),
-    ).strip("_")
-
-    audio_path = AUDIO_DIR / f"{today}_{safe_title}.mp3"
-    video_path = VIDEO_DIR / f"{today}_{safe_title}.mp4"
-    script_path = SCRIPT_DIR / f"script_{today}.json"
-
-    print("="*45)
-    print("MEDIAFLOW V2 - ANIMATED SHORTS")
-    print(f"Title: {story['title']}")
-    print(f"Voice: {VOICE}")
-    print("="*45)
-
-    script_path.write_text(
-        __import__("json").dumps(story, indent=2),
-        encoding="utf-8",
-    )
-
-    print("1/2 Generating AI voice...")
-    await generate_voice(story["text"], audio_path)
-
-    print("2/2 Rendering animated video...")
-    render_video(story, audio_path, video_path)
-
-    print("\nSUCCESS")
-    print(f"Audio: {audio_path}")
-    print(f"Video: {video_path}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())       threads=2,
-        logger=None,
-    )
-
-    video.close()
-    audio.close()
 
 
 async def generate_voice(text, audio_path):
@@ -914,36 +637,34 @@ async def generate_voice(text, audio_path):
 
 async def main():
     today = datetime.now().strftime("%Y-%m-%d")
-
-    # Choose one script per run.
-    script = random.choice(SCRIPTS)
+    story = random.choice(STORIES)
 
     safe_title = re.sub(
         r"[^a-zA-Z0-9]+",
         "_",
-        script["title"].lower(),
+        story["title"].lower(),
     ).strip("_")
 
-    audio_path = OUTPUT_AUDIO / f"{today}_{safe_title}.mp3"
-    video_path = OUTPUT_VIDEO / f"{today}_{safe_title}.mp4"
-    json_path = OUTPUT_SCRIPT / f"script_{today}.json"
+    audio_path = AUDIO_DIR / f"{today}_{safe_title}.mp3"
+    video_path = VIDEO_DIR / f"{today}_{safe_title}.mp4"
+    script_path = SCRIPT_DIR / f"script_{today}.json"
 
-    print("=" * 45)
-    print("MEDIAFLOW - AI SHORTS GENERATOR")
-    print(f"Title: {script['title']}")
+    print("="*45)
+    print("MEDIAFLOW V2 - ANIMATED SHORTS")
+    print(f"Title: {story['title']}")
     print(f"Voice: {VOICE}")
-    print("=" * 45)
+    print("="*45)
 
-    json_path.write_text(
-        json.dumps(script, indent=2),
+    script_path.write_text(
+        json.dumps(story, indent=2),
         encoding="utf-8",
     )
 
-    print("Generating AI narration...")
-    await generate_voice(script["text"], audio_path)
+    print("Step 1: Generating AI narration...")
+    await generate_voice(story["text"], audio_path)
 
-    print("Generating original animated video...")
-    build_video(script, audio_path, video_path)
+    print("Step 2: Rendering animated video...")
+    render_video(story, audio_path, video_path)
 
     print("\nSUCCESS")
     print(f"Audio: {audio_path}")
