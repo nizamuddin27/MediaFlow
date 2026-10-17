@@ -1,22 +1,25 @@
 name: MediaFlow Automation
 
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 1 * * *"
+workflow_dispatch:
+schedule:
+- cron: "0 1 * * *"
 
 jobs:
-  run:
-    runs-on: ubuntu-latest
+run:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+  - name: Set up Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.12"
 
-      - name: Run automation
-        run: python main.py
+  - name: Install dependencies
+    run: pip install -r requirements.txt
+
+  - name: Run automation
+    run: python main.py
